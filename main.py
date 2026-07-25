@@ -11,6 +11,11 @@ from routers import messages
 from routers import users
 from routers import graph
 from routers import facts
+from routers import threads
+from routers import project
+from routers import context
+from routers import batch
+from routers import task
 
 
 @asynccontextmanager
@@ -38,6 +43,12 @@ app.include_router(users.router)
 app.include_router(users._compat_router)
 app.include_router(graph.router)
 app.include_router(facts.router)
+app.include_router(threads.router)
+app.include_router(threads.message_router)
+app.include_router(project.router)
+app.include_router(context.router)
+app.include_router(batch.router)
+app.include_router(task.router)
 
 
 @app.get("/healthz")

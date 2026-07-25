@@ -7,7 +7,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 
 from database import get_db
 from deps import verify_api_key
-from models.user import UserCreateRequest, UserListResponse, UserResponse, UserUpdateRequest
+from models.thread import Thread, ThreadListResponse
+from models.user import UserCreateRequest, UserListResponse, UserNodeResponse, UserResponse, UserUpdateRequest
 
 router = APIRouter(prefix="/api/v2/users", tags=["users"])
 
@@ -19,6 +20,18 @@ def _row_to_user(row: aiosqlite.Row) -> UserResponse:
         email=row["email"],
         first_name=row["first_name"],
         last_name=row["last_name"],
+        metadata=json.loads(row["metadata"] or "{}"),
+        created_at=datetime.fromisoformat(row["created_at"]),
+        updated_at=datetime.fromisoformat(row["updated_at"]),
+    )
+
+
+def _row_to_thread(row: aiosqlite.Row) -> Thread:
+    """把 sessions 表的一行转换为 Thread 模型。"""
+    return Thread(
+        uuid=row["session_id"],
+        thread_id=row["session_id"],
+        user_id=row["user_id"],
         metadata=json.loads(row["metadata"] or "{}"),
         created_at=datetime.fromisoformat(row["created_at"]),
         updated_at=datetime.fromisoformat(row["updated_at"]),
@@ -158,6 +171,62 @@ async def list_users(
     total = count_row[0] if count_row else 0
     users = [_row_to_user(r) for r in rows]
     return UserListResponse(users=users, total_count=total, row_count=len(users))
+
+
+@router.get(
+    "/{user_id}/threads",
+    response_model=ThreadListResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_user_threads(
+    user_id: str,
+    limit: int = 100,
+    offset: int = 0,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """获取某个用户的所有 Thread。"""
+    row = await (await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    rows = await (await db.execute(
+        "SELECT * FROM sessions WHERE user_id = ? LIMIT ? OFFSET ?", (user_id, limit, offset)
+    )).fetchall()
+    return ThreadListResponse(
+        threads=[_row_to_thread(r) for r in rows],
+        total_count=len(rows),
+        row_count=len(rows),
+    )
+
+
+@router.get(
+    "/{user_id}/node",
+    response_model=UserNodeResponse,
+    dependencies=[Depends(verify_api_key)],
+)
+async def get_user_node(
+    user_id: str,
+    db: aiosqlite.Connection = Depends(get_db),
+):
+    """返回用户节点占位信息。"""
+    row = await (await db.execute("SELECT * FROM users WHERE user_id = ?", (user_id,))).fetchone()
+    if not row:
+        raise HTTPException(status_code=404, detail="User not found")
+    return UserNodeResponse(
+        uuid=user_id,
+        user_id=user_id,
+        name=user_id,
+        created_at=datetime.fromisoformat(row["created_at"]),
+    )
+
+
+@router.get(
+    "/{user_id}/warm",
+    dependencies=[Depends(verify_api_key)],
+)
+async def warm_user(user_id: str):
+    """预热用户图数据，当前为占位实现。"""
+    _ = user_id
+    return {"success": True}
 
 
 # ── zep-cloud SDK compat: GET /api/v2/users-ordered ───────────────────────────

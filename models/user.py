@@ -34,3 +34,12 @@ class UserListResponse(BaseModel):
     users: list[UserResponse]
     total_count: int
     row_count: int
+
+
+class UserNodeResponse(BaseModel):
+    """用户节点占位响应。"""
+
+    uuid: str
+    user_id: str
+    name: str = ""
+    created_at: datetime | None = None

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from graphiti_core.edges import EntityEdge
@@ -638,3 +639,22 @@ async def set_entity_types(body: EntityTypesRequest):
         "entity_type_count": len(compiled.entity_types),
         "edge_type_count": len(compiled.edge_types),
     }
+
+
+# ── custom-instructions compat ────────────────────────────────────────────────
+# zep-cloud SDK 暴露自定义指令列表；OpenZep 将其作为空占位返回。
+
+_custom_instructions: list[dict[str, Any]] = []
+
+
+@router.get("/custom-instructions")
+async def list_custom_instructions():
+    """列出当前自定义指令。"""
+    return _custom_instructions
+
+
+@router.delete("/custom-instructions")
+async def delete_custom_instructions():
+    """清空自定义指令。"""
+    _custom_instructions.clear()
+    return {"deleted": True}
