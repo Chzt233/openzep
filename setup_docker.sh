@@ -86,6 +86,18 @@ normalize_docker_url() {
     printf '%s\n' "$raw_url"
 }
 
+# 检测当前环境可用的 Docker Compose 命令（优先 docker compose，回退 docker-compose）
+DOCKER_COMPOSE=()
+detect_docker_compose() {
+    if docker compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE=(docker compose)
+    elif docker-compose version >/dev/null 2>&1; then
+        DOCKER_COMPOSE=(docker-compose)
+    else
+        error "未找到 docker compose 或 docker-compose，请先安装 Docker Compose"
+    fi
+}
+
 echo
 echo -e "${BOLD}${CYAN}╔══════════════════════════════════════╗${NC}"
 echo -e "${BOLD}${CYAN}║     OpenZep Docker 安装向导          ║${NC}"
@@ -93,8 +105,8 @@ echo -e "${BOLD}${CYAN}╚══════════════════
 echo
 
 command -v docker >/dev/null 2>&1 || error "未找到 docker，请先安装 Docker"
-docker compose version >/dev/null 2>&1 || error "未找到 docker compose，请先安装 Docker Compose"
-success "Docker 环境检查通过"
+detect_docker_compose
+success "Docker 环境检查通过（使用: ${DOCKER_COMPOSE[*]}）"
 echo
 
 ENV_FILE=".env"
@@ -161,7 +173,7 @@ success ".env 已写入 Docker 版本配置"
 echo
 
 info "启动 Docker Compose..."
-docker compose up -d --build
+"${DOCKER_COMPOSE[@]}" up -d --build
 
 info "等待 OpenZep 健康检查..."
 for i in $(seq 1 20); do
@@ -171,7 +183,7 @@ for i in $(seq 1 20); do
     fi
     sleep 2
     if [[ "$i" -eq 20 ]]; then
-        warn "健康检查超时，请查看日志: docker compose logs --tail=100 openzep"
+        warn "健康检查超时，请查看日志: ${DOCKER_COMPOSE[*]} logs --tail=100 openzep"
     fi
 done
 
@@ -179,5 +191,5 @@ echo
 echo -e "  服务地址:  ${BOLD}http://localhost:8000${NC}"
 echo -e "  API Key:   ${BOLD}${API_KEY}${NC}"
 echo -e "  文档地址:  ${BOLD}http://localhost:8000/docs${NC}"
-echo -e "  排障日志:  ${BOLD}docker compose logs -f openzep${NC}"
+echo -e "  排障日志:  ${BOLD}${DOCKER_COMPOSE[*]} logs -f openzep${NC}"
 echo
